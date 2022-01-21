@@ -1,0 +1,159 @@
+pip install bs4
+pip install requests
+pip install sqlalchemy
+from bs4 import BeautifulSoup
+import requests
+import pandas as pd
+import sqlalchemy
+
+# HTTP Request: Store website in variable
+website = 'https://www.justia.com/lawyers/new-york/new-york-city'
+
+#Get Request
+response = requests.get(website)
+
+#Response code
+print(response)
+
+# Soup Object
+soup = BeautifulSoup(response.content, 'html.parser')
+
+#Results
+results = soup.find_all('div',{'data-vars-action':'OrganicListing'})
+
+#Target Necessary Data
+#Put everything together inside a For-Loop
+name = []
+short_bio = []
+specialization = []
+university = []
+address = []
+phone = []
+email_link = []
+site_link = []
+
+#aside from just entering result information, in the case that some data has not been entered on the site for any variable, we will use try/except method
+
+for result in results:
+  #Name
+  try:
+    name.append(result.find('strong', {'class':'lawyer-name'}).get_text().strip())
+  except:
+    name.append('')
+  #Short Bio
+  try:
+    short_bio.append(result.find('div', {'class':'lawyer-expl'}).get_text().strip())
+  except:
+    short_bio.append('')  
+  #Specialization
+  try:
+    specialization.append(result.find('span', {'class':'-practices'}).get_text().strip())
+  except:
+    specialization.append('')  
+  #University
+  try:
+    university.append(result.find('span', {'class':'-law-schools'}).get_text().strip())
+  except:
+    university.append('')  
+  #Address
+  try:
+    address.append(result.find('span', {'class':'-address'}).get_text().strip().replace("\t",'').replace('\n',', '))
+  except:
+    address.append('')  
+  #Phone
+  try:
+    phone.append(result.find('strong', {'class':'-phone'}).get_text().strip())
+  except:
+    phone.append('')  
+  #Email Link
+  try:
+    email_link.append(result.find('a', {'class':'-email'}).get('href'))
+  except:
+    email_link.append('')  
+  #Site Link
+  try:
+    site_link.append(result.find('a', {'class':'-website'}).get('href'))
+  except:
+    site_link.append('')
+    
+#Create Padas Dataframe
+df_lawyers = pd.DataFrame({'lawyer_name':name, 'short_bio':short_bio, 'specialization':specialization, 'university':university, 
+                           'address':address, 'phone':phone, 'email_link':email_link, 'site_link':site_link})
+
+#Oputput in excel
+df_lawyers.to_excel('lawyers_single.xlsx', index=False)
+#df_lawyers.to_csv('lawyers_singledb.csv', index=False) ---> if a .csv file is preferred
+
+#Scrape 20 pages
+#Scraping data from multiple pages
+#seeing the url address structure allows us to manipulate the number of webpages we collect from through the url variable
+
+names = []
+short_bios = []
+specializations = []
+universities = []
+addresses = []
+phones = []
+email_links = []
+site_links = []
+for s in range(1,21):
+
+  websites = 'https://www.justia.com/lawyers/california/san-francisco?page='+str(s)
+  responses = requests.get(websites)
+  soups = BeautifulSoup(responses.content, 'html.parser')
+  resultss = soups.find_all('div',{'data-vars-action':'OrganicListing'})
+
+  for r in resultss:
+    #Names
+    try:
+      names.append(r.find('strong', {'class':'lawyer-name'}).get_text().strip())
+    except:
+      names.append('')
+    #Short Bios
+    try:
+      short_bios.append(r.find('div', {'class':'lawyer-expl'}).get_text().strip())
+    except:
+      short_bios.append('')  
+    #Specializations
+    try:
+      specializations.append(r.find('span', {'class':'-practices'}).get_text().strip())
+    except:
+      specializations.append('')  
+    #Universities
+    try:
+      universities.append(r.find('span', {'class':'-law-schools'}).get_text().strip())
+    except:
+      universities.append('')  
+    #Addresses
+    try:
+      addresses.append(r.find('span', {'class':'-address'}).get_text().strip().replace("\t",'').replace('\n',', '))
+    except:
+      addresses.append('')  
+    #Phones
+    try:
+      phones.append(r.find('strong', {'class':'-phone'}).get_text().strip())
+    except:
+      phones.append('')  
+    #Email Links
+    try:
+      email_links.append(r.find('a', {'class':'-email'}).get('href'))
+    except:
+      email_links.append('')  
+    #Site Links
+    try:
+      site_links.append(r.find('a', {'class':'-website'}).get('href'))
+    except:
+      site_links.append('')
+
+df_lawyers_multiple = pd.DataFrame({'lawyer_names':names, 'short_bios':short_bios, 'specializations':specializations, 'universities':universities, 
+                           'addresses':addresses, 'phones':phones, 'email_links':email_links, 'site_links':site_links})
+                           
+#Excel
+df_lawyers_multiple.to_excel('lawyers_multiple.xlsx', index=False)
+#df_lawyers_multiple.to_csv('lawyers_multipledb.csv', index=False) ---> if a .csv file is preferred
+
+#MySQL
+# Create sqlalchemy engine - as we now have an 800 row x 8 column database we can now import it to MySQL
+# Due to the size of the database it may be easier to clean, manipulate, and analyze uning SQL as opposed to a spreadsheet
+engine = sqlalchemy.create_engine('mysql://mysql:passwrd@localhost/hostname')
+df_lawyers_multiple.to_sql('lawyers', engine, index=False)
